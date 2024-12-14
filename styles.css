@@ -1,0 +1,23 @@
+body {
+  direction: rtl;
+  text-align: right;
+  font-family: Calibri, sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  direction: rtl;
+  text-align: right;
+}
+
+p {
+  direction: rtl;
+  text-align: right;
+  line-height: 1.5; 
+  margin-bottom: 10px; 
+
+}
+
+li {
+  direction: rtl;
+  text-align: right;
+}

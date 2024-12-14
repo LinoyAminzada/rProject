@@ -1,0 +1,577 @@
+---
+title: "ניתוח נתוני סופר"
+output:
+  html_document:
+    css: styles.css
+date: "10-11-2024"
+---
+
+```{r setup, include=FALSE}
+
+if (!require("nlme")) install.packages("nlme")
+if (!require("magrittr")) install.packages("magrittr")
+if (!require("ggplot2")) install.packages("ggplot2")
+if (!require("tidyverse")) install.packages("tidyverse")
+if (!require("plotly")) install.packages("plotly")
+
+library(tidyverse)
+library(nlme)
+library(magrittr)
+library(ggplot2)
+library(plotly)
+```
+
+**שמות הכותבים:** לינוי עזר, טום ברוור.
+
+*מאגר הנתונים נלקח לשם התנסות מאתר Kaggle. 
+
+# פתיח
+
+### תיאור עולם התוכן
+
+בתחום הקמעונאות, חוויית הלקוח היא גורם מרכזי להצלחה ולשימור לקוחות, והבנת דפוסי הקנייה היא קריטית לתפעול יעיל ולהצלחה בשוק תחרותי. חנויות קמעונאיות אוספות מידע רב אודות הרגלי הרכישה של לקוחותיהן, מה שמייצר הזדמנות להבין לעומק את התנהגות הלקוחות וליישם תובנות עסקיות המבוססות על נתונים. 
+
+באמצעות ניתוחים שונים, ניתן להפיק תובנות המאפשרות שיפור התפעול, התאמת מלאי ואופטימיזציה של תהליכי השיווק והמכירה. המחקר הנוכחי מתמקד בניתוח דפוסי קנייה של לקוחות תוך שימוש בנתוני מכירות מחנות הפועלת 24/7 במשך תקופה ממושכת.
+
+### מוטיבציה
+
+מערך הנתונים מספק מבט מקיף על התנהגות צרכנים בהקשר של רכישת מוצרים בתחום הקמעונאות. הבנת דפוסי הקנייה של לקוחות היא קריטית לפיתוח אסטרטגיות שיווק יעילות, שיפור חווית הלקוח, וחיזוי דפוסי הרכישה העתידיים. 
+
+באמצעות הניתוחים, נוכל לזהות מגמות וקשרים חשובים שיאפשרו לעסק להתאים את שירותיו לצרכי לקוחותיו. בנוסף לכך, הידע והטכניקות שאנו נשתמש בהם בניתוח זה רלוונטיים גם לתחומים ולעולמות נוספים. על כן, ביצוע הניתוח עשוי להניב תובנות משמעותיות בעלות ערך לא רק בתחום הקמעונאות אלא גם בתחומים אחרים.
+
+### הקשר למערך הנתונים
+
+הנתונים שנבחרו לניתוח מכילים יותר מ-2 מיליון רשומות רכישה, הכוללות מידע על הזמנות לקוחות, מוצרים שנרכשו, מועדי הרכישה ותדירות הרכישות. מאגר זה מאפשר ניתוח דפוסי רכישה על פני ימים שונים ושעות שונות, השוואה בין מוצרים שנרכשו במחלקות שונות, וזיהוי הבדלים בהתנהגות בין לקוחות קבועים למזדמנים. 
+
+הנתונים הללו מספקים בסיס רחב להפקת תובנות משמעותיות לשיפור התפעול והאסטרטגיה.
+
+### תיאור המשתנים שנבחרו לניתוח
+
+המשתנים המרכזיים שנבחרו לניתוח כוללים:
+<br>1. `order_id`: מזהה ייחודי של כל הזמנה.
+<br>2. `user_id`: מזהה ייחודי לכל לקוח.
+<br>3. `order_dow`: היום בשבוע שבו בוצעה ההזמנה (0-6).
+<br>4. `order_hour_of_day`: השעה ביום שבה בוצעה ההזמנה (0-23).
+<br>5. `product_id`: מזהה המוצר שנרכש.
+<br>6. `add_to_cart_order`: סדר הכנסת המוצרים לעגלה בהזמנה.
+<br>7. `department_id`: מזהה את המחלקה שממנה נרכש המוצר.
+<br>8. `days_since_prior_order`: מספר הימים שעברו מאז ההזמנה הקודמת של אותו לקוח.
+<br>9. `reordered`: משתנה המציין אם המוצר נרכש בעבר (1 = כן, 0 = לא).
+
+```{r data_load, echo=FALSE}
+dataset <- read.csv("ProjectDataSet.csv")
+```
+
+# ניתוח הנתונים
+
+#### **שאלה 1: ניתוח פופולריות של מחלקות על פני ימים שונים בשבוע.** 
+
+**השערה:** מוצרים טריים כמו בשר ודגים צפויים להגיע לשיא במכירות בסופי שבוע עקב ארוחות משפחתיות או מפגשים חברתיים, בעוד שמוצרי היגיינה ופריטי חלב עשויים להראות שיעור רכישה יציב יותר לאורך השבוע.
+<br>
+**הסבר מילולי על התוצאה המוצגת באיור:**
+כלל המחלקות בחנות חולקו ל-5 קטגוריות מרכזיות Food, Storage, Beverages, Household ו-Other ולפיכך יוצגו הגרפים הבאים. כל נקודה בכל גרף מייצגת את הממוצע של כמות הרכישות היומיות (y) לפי מחלקה ויום בשבוע (x). הצבעים מייצגים את המחלקות השונות.
+
+```{r first_plot, echo=FALSE}
+# חישוב סך הרכישות לפי יום ומחלקה
+summary_table <- dataset %>%
+  group_by(order_dow, department) %>%  
+  summarise(total_items_purchased = sum(n()), .groups = "drop")  
+
+# הוספת עמודת קטגוריות למחלקות
+summary_table <- summary_table %>%
+  mutate(department_category = case_when(
+    department %in% c("produce", "dairy eggs", "meat seafood", "bakery", "breakfast", "snacks", "international") ~ "Food",
+    department %in% c("frozen", "canned goods", "dry goods pasta", "pantry") ~ "Storage",
+    department %in% c("alcohol", "beverages") ~ "Beverages",
+    department %in% c("personal care", "household", "babies", "pets") ~ "Household",
+    TRUE ~ "Other"
+  ))
+
+# הגדרת מספר השבועות בשנה
+num_weeks_in_year <- 52
+
+# חישוב ממוצעים יומיים לפי מחלקה
+average_stats <- summary_table %>%
+  group_by(order_dow, department, department_category) %>%
+  summarise(
+    mean_items = total_items_purchased / num_weeks_in_year,  # חישוב ממוצע יומי לפי מספר השבועות
+    .groups = "drop"
+  )
+```
+
+#### **קטגוריית מזון**
+
+```{r food_plot, echo=FALSE}
+# נתונים עבור קטגוריית Food
+food_data <- subset(average_stats, department_category == "Food")
+
+# יצירת גרף 
+p_food <- ggplot(food_data, aes(x = factor(order_dow), y = mean_items, color = department, group = department)) +  
+  geom_point(size = 3) +  
+  geom_line() +  
+  scale_x_discrete(labels = c("0" = "Sunday", "1" = "Monday", "2" = "Tuesday", "3" = "Wednesday", "4" = "Thursday", "5" = "Friday", "6" = "Saturday")) +  
+  labs(title = "Daily Average Purchases per Department for Food",
+       x = "Day of the Week",
+       y = "Average Number of Items Purchased (per Day)",
+       color = "Department") +  
+  theme_minimal()
+
+p_food
+
+```
+
+**מסקנות ותובנות עיקריות קטגוריית המזון**  
+
+- רוב מחלקות המזון מציגות שיא ברכישות בתחילת השבוע, עם ירידה הדרגתית עד יום חמישי ועלייה קלה בסוף השבוע.
+- מוצרי חלב וירקות ופירות מציגים תנודתיות משמעותית, בעוד מחלקות כמו בשר ודגים ומוצרים לארוחות בוקר מראות יציבות יחסית לאורך השבוע.
+- המחלקות מוצרי חלב, ירקות ופירות וחטיפים הינן בעלות נפח המכירות הגדול ביותר בקטגוריה.
+
+
+#### **קטגוריית מוצרים לאחסון**
+
+```{r storage_plot, echo=FALSE}
+# נתונים עבור קטגוריית Storage
+storage_data <- subset(average_stats, department_category == "Storage")
+
+# יצירת גרף עבור קטגוריית Storage
+p_storage <- ggplot(storage_data, aes(x = factor(order_dow), y = mean_items, color = department, group = department)) +  
+  geom_point(size = 3) +  
+  geom_line() +  
+  scale_x_discrete(labels = c("0" = "Sunday", "1" = "Monday", "2" = "Tuesday", "3" = "Wednesday", "4" = "Thursday", "5" = "Friday", "6" = "Saturday")) + 
+  labs(title = "Daily Average Purchases per Department for Storage",
+       x = "Day of the Week",
+       y = "Average Number of Items Purchased (per Day)",
+       color = "Department") +  
+  theme_minimal()
+
+# הצגת הגרף עבור Storage
+p_storage
+
+```
+
+**מסקנות ותובנות עיקריות מוצרי האחסון**
+
+- כלל המחלקות בקטגוריה מציגות שיא ברכישות בתחילת השבוע, עם ירידה הדרגתית עד יום חמישי ועלייה קלה בסוף השבוע.
+- המחלקות מוצרים בהקפאה ומוצרים לשימור הינן בעלות נפח המכירות הגדול ביותר בקטגוריה.
+
+#### **קטגוריית משקאות**
+
+```{r beverages_plot, echo=FALSE}
+# נתונים עבור קטגוריית Beverages
+beverages_data <- subset(average_stats, department_category == "Beverages")
+
+# יצירת גרף 
+p_beverages <- ggplot(beverages_data, aes(x = factor(order_dow), y = mean_items, color = department, group = department)) +  
+  geom_point(size = 3) +  
+  geom_line() +  
+  scale_x_discrete(labels = c("0" = "Sunday", "1" = "Monday", "2" = "Tuesday", "3" = "Wednesday", "4" = "Thursday", "5" = "Friday", "6" = "Saturday")) + 
+  labs(title = "Daily Average Purchases per Department for Beverages",
+       x = "Day of the Week",
+       y = "Average Number of Items Purchased (per Day)",
+       color = "Department") +  
+  theme_minimal()
+
+# הצגת הגרף עבור Beverages
+p_beverages
+```
+
+**מסקנות ותובנות עיקריות קטגוריית משקאות**
+
+- משקאות קלים נרכשים בכמות גבוהה ביום שני, לעומת יום חמישי שבו נפח המכירות יורד משמעותית. ביום שישי נרשמת עלייה יחסית במכירות.
+- אלכוהול מראה יציבות יחסית לאורך השבוע עם עלייה קלה במכירות ביום שישי, ככל הנראה לקראת סוף השבוע.
+
+
+#### **קטגוריית משק בית**
+
+```{r household_plot, echo=FALSE}
+# נתונים עבור קטגוריית Household
+household_data <- subset(average_stats, department_category == "Household")
+
+# יצירת גרף  
+p_household <- ggplot(household_data, aes(x = factor(order_dow), y = mean_items, color = department, group = department)) +  
+  geom_point(size = 3) +  
+  geom_line() +  
+  scale_x_discrete(labels = c("0" = "Sunday", "1" = "Monday", "2" = "Tuesday", "3" = "Wednesday", "4" = "Thursday", "5" = "Friday", "6" = "Saturday")) + 
+  labs(title = "Daily Average Purchases per Department for Household",
+       x = "Day of the Week",
+       y = "Average Number of Items Purchased (per Day)",
+       color = "Department") +  
+  theme_minimal()
+
+# הצגת הגרף עבור Household
+p_household
+```
+
+**מסקנות ותובנות עיקריות קטגוריית משק בית**
+
+- מוצרי תינוקות, מוצרים לבית וטיפוח אישי נרכשים בעיקר בימי ראשון, ולאחר ירידה הדרגתית אמצע שבועית ישנה התאוששות לקראת סוף השבוע, החל מיום חמישי.
+- מוצרים לחיות מחמד יציבים יחסית לאורך השבוע, עם תנודתיות קלה.
+
+
+#### **קטגוריית "אחר"**
+
+```{r other_plot, echo=FALSE}
+# נתונים עבור קטגוריית Other
+other_data <- subset(average_stats, department_category == "Other")
+
+# יצירת גרף
+p_other <- ggplot(other_data, aes(x = factor(order_dow), y = mean_items, color = department, group = department)) +  
+  geom_point(size = 3) +  
+  geom_line() + 
+  scale_x_discrete(labels = c("0" = "Sunday", "1" = "Monday", "2" = "Tuesday", "3" = "Wednesday", "4" = "Thursday", "5" = "Friday", "6" = "Saturday")) + 
+  labs(title = "Daily Average Purchases per Department for Other",
+       x = "Day of the Week",
+       y = "Average Number of Items Purchased (per Day)",
+       color = "Department") +  
+  theme_minimal()
+
+# הצגת הגרף עבור Other
+p_other
+```
+
+**מסקנות ותובנות עיקריות קטגוריית "אחר"**
+
+- המעדנייה מציגה את נפח המכירות הגדול ביותר עם שיא מכירות ביום ראשון, ירידה עד יום חמישי ועלייה קלה לקראת סוף השבוע.
+- שאר המחלקות כמו bulk (מוצרים בתפזורת) מציגות מכירות קבועות ודומות ללא תנודות גדולות לאורך השבוע.
+
+### חישוב פרופורצית מכירות קטגוריות
+
+גרף החלק היחסי של מכירות הקטגוריות מציג את התרומה היחסית של כל קטגוריה בכל יום, ומשלים את התובנות מהגרפים שהציגו את הממוצעים האבסולוטיים של המכירות. גרף זה מספק הבנה מעמיקה על דומיננטיות הקטגוריות לאורך השבוע ומאפשר לזהות שינויים בתמהיל היומי, כלומר אילו קטגוריות מרכזיות תורמות את עיקר המכירות בכל יום.
+<br>
+הגרף בנוי כתרשים עמודות מוערם (stacked bar chart), שבו הציר האופקי מייצג את ימות השבוע והציר האנכי את החלק היחסי של כל קטגוריה ביום נתון. הצבעים מייצגים את הקטגוריות השונות.
+
+```{r prop_plot, echo=FALSE}
+library(dplyr)
+library(ggplot2)
+library(plotly)
+
+# חישוב ממוצעים יומיים לפי קטגוריה
+daily_sales_category <- summary_table %>%
+  group_by(order_dow, department_category) %>%
+  summarise(
+    mean_items = mean(total_items_purchased),  # חישוב ממוצע יומי
+    .groups = "drop"
+  )
+
+# חישוב סך הממוצעים היומיים
+total_sales_per_day_category <- daily_sales_category %>%
+  group_by(order_dow) %>%
+  summarise(
+    total_mean_items = sum(mean_items),  # סכום הממוצעים היומיים של כל הקטגוריות
+    .groups = "drop"
+  )
+
+# חיבור המידע כדי לחשב את החלק היחסי
+daily_sales_proportion_category <- daily_sales_category %>%
+  left_join(total_sales_per_day_category, by = "order_dow") %>%
+  mutate(
+    proportion = mean_items / total_mean_items  # חישוב החלק היחסי
+  )
+
+# יצירת גרף 
+plot <- ggplot(daily_sales_proportion_category, aes(x = order_dow, y = proportion, fill = department_category)) +
+  geom_bar(stat = "identity", position = "stack") + 
+  geom_text(aes(label = round(proportion, 2)), 
+            position = position_stack(vjust = 0.5), color = "black") + 
+  labs(
+    x = "יום בשבוע",
+    y = "חלק יחסי מהמכירות",
+    title = "החלק היחסי של מכירות לפי קטגוריה בכל יום בשבוע"
+  ) +
+  scale_x_continuous(breaks = 0:6, labels = c("ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת")) +
+  theme_minimal()  
+
+# הצגת הגרף
+print(plot)
+
+```
+
+**מסקנות ותובנות עיקריות**
+
+- **מגמה שבועית:** היחסים בין הקטגוריות יציבים ברוב ימות השבוע, עם תמהיל מכירות עקבי יחסית.
+- קטגוריית המזון דומיננטית ומהווה כ-44% מסך המכירות היומי בממוצע, בעוד קטגוריות האחסון והמשקאות תופסות כ-22% כל אחת. קטגוריית משק הבית תורמת כ-7% מסך המכירות וקטגוריית "אחר" כ-5%.
+- בימי ראשון ושבת נרשמת עלייה קלה בקטגוריית מוצרי האחסון לצד ירידה קלה במכירות המשקאות.
+
+#### **שאלה 2: האם ישנם זמנים מסוימים ביום או בשבוע שבהם היקף ההזמנות עולה?**
+
+**השערה:** כיוון שהחנות פועלת 24/7, אנו מצפים לעלייה בהזמנות בשעות הערב (לאחר שעות העבודה) ובסופי שבוע.
+<br>
+**הסבר מילולי על התוצאה המוצגת באיור:**
+ ציר ה-X מייצג את ימות השבוע (מיום ראשון עד שבת), וציר ה-Y מציג את שעות היום (מ-0, חצות, ועד 23). הערכים בכל משבצת מציגים את ממוצע המכירות היומי לפי שעה ויום, כאשר מפת החום ממחישה את רמות ההזמנות: אזורים בכחול כהה מסמנים שעות עם נפח הזמנות גבוה, בעוד צבעים בהירים מייצגים שעות עם פעילות נמוכה יותר.
+
+```{r heatmap_plot, echo=FALSE}
+dataset$order_dow <- factor(dataset$order_dow, levels = 0:6, labels = c("ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"))
+
+# Grouping by relevant variables from the dataset
+product_grouped <- group_by(dataset, order_id, order_dow, product_name, order_hour_of_day)
+
+# Summarizing by the day of the week and hour of the day
+q6 <- group_by(product_grouped, order_dow, order_hour_of_day)
+q6 <- summarize(q6, average_purchases = n(), .groups = "drop")
+
+# Plotting the heatmap
+ggplot(q6, aes(x = order_dow, y = order_hour_of_day, fill = average_purchases)) +
+  geom_tile() +
+  scale_fill_gradient(low = "white", high = "blue", name = "מכירות") +
+  labs(x = "יום בשבוע", y = "שעה ביום", title = "מכירות לפי יום ושעה") +
+  theme_minimal()
+```
+
+**מסקנות ותובנות עיקריות**
+
+- **שעות הלילה והבוקר:** קיימת פעילות דלילה מאוד בין השעות 0:00 ל-7:00 ובין 19:00 ל-23:00, מה שמעיד על כך שאלה שעות פחות נפוצות להזמנות. תוצאה זו תומכת בהשערה שזמני הערב המאוחרים והלילה אינם שעות פעילות מובהקות לרכישה.
+- **שעות הפעילות המרכזיות:** ברוב ימות השבוע, השעות שבין 7:00 ל-19:00 מציגות נפח הזמנות מוגבר יותר, אך ניתן להבחין בהבדלים בין הימים עצמם. התנהגות זו מעידה על קנייה בשעות יום העבודה, אף שציפינו לפעילות מוגברת בשעות הערב.
+- **עומס בתחילת השבוע:** יום ראשון מראה את עומס ההזמנות הגבוה ביותר, בעיקר בין השעות 9:00 ל-17:00, כשמיד לאחריו יום שני עם שיא עומס בשעות 8:00-11:00. ייתכן כי לקוחות רואים בתחילת השבוע זמן אידיאלי להזמין מוצרים טריים לקראת השבוע החדש.
+- **סופי שבוע:** יום חמישי מציג את נפח ההזמנות הנמוך ביותר ויום שבת מציג עומס קל בלבד ביחס לשאר ימות השבוע.
+
+#### **שאלה 3: השוואת הרגלי הרכישה של קונים תכופים לעומת קונים מזדמנים.**
+
+**השערה:**
+קונים קבועים נוטים לבצע רכישות גדולות יותר, שכן הם מסתמכים על החנות לצרכים השגרתיים שלהם. לעומתם, קונים מזדמנים מבצעים רכישות קטנות יותר.
+<br>
+**הגדרות:**
+
+- **לקוחות קבועים (צבע תכלת):** מבצעים הזמנות בטווח ממוצע של עד 10 ימים.
+- **לקוחות מזדמנים (צבע כתום):** מבצעים הזמנות בטווח ממוצע של מעל 10 ימים.
+<br>
+
+**הסבר מילולי על התוצאה המוצגת באיור:**
+האיור מציג השוואה בין הרגלי רכישה של לקוחות קבועים ומזדמנים לפי גודל הסל. ציר ה-X מייצג את גודל הסל (עד 5 מוצרים, בין 5 ל-10 מוצרים, ויותר מ-10 מוצרים), וציר ה-Y מציג את ממוצע מספר הלקוחות שרכשו באותה קטגוריה. 
+
+```{r bar_plot, echo=FALSE}
+temp <- dataset %>%
+  group_by(order_id) %>%  # קיבוץ לפי order_id
+  summarize(
+    total_items = sum(add_to_cart_order)  # סכום add_to_cart_order עבור כל order_id
+  )
+
+costumer2 <- dataset %>%
+  select(order_id, days_since_prior_order) %>%
+  distinct() %>%
+  right_join(temp, by = "order_id") %>%
+  mutate(
+    customer_type = case_when(
+      is.na(days_since_prior_order) | days_since_prior_order > 10 ~ "casual",
+      TRUE ~ "permanent"
+    ),
+    purchase_group = case_when(
+      total_items < 5 ~ "רכישה עד 5 מוצרים",
+      total_items >= 5 & total_items <= 10 ~ "רכישה של בין 5 ל 10 מוצרים",
+      total_items > 10 ~ "יותר מ-10 מוצרים"
+    )
+  )
+  
+
+# חישוב ממוצע מספר לקוחות בכל סוג ובכל קבוצת רכישה
+summary_costumers <- costumer2 %>%
+  group_by(customer_type, purchase_group) %>%
+  summarize(
+    average_users = n(),
+    .groups = "drop"  # מבטל את הקיבוץ בסיום
+  )
+
+# יצירת גרף עם ערכים על גבי העמודות
+b_plot <- ggplot(summary_costumers, aes(x = purchase_group, y = average_users, fill = customer_type)) +
+  geom_col(position = "dodge") + 
+  geom_text(aes(label = average_users), vjust = -0.3, position = position_dodge(0.9)) + # הוספת הערכים
+  labs(x = "כמות מוצרים שנרכשו", y = "ממוצע לקוחות", title = "ממוצע לקוחות לפי סוג וקבוצת רכישה")
+
+# הצגת הגרף
+print(b_plot)
+```
+
+**מסקנות ותובנות עיקריות**
+
+- **לקוחות קבועים:** החנות מחזיקה בקבוצת לקוחות קבועים, מה שתורם ליציבות עסקית. ניכר כי קבוצה זו נוטה להזמין סלים גדולים יותר, מה שמעיד על כך שהם רואים בחנות מקור קבוע לצרכים השוטפים שלהם.
+- **לקוחות מזדמנים:** זוהי קבוצה קטנה יחסית, אשר משלימה קניות ספציפיות, לרוב בסלים קטנים יותר ובתדירות נמוכה.
+- **השוואה בין סוגי הלקוחות:** לקוחות קבועים מבצעים יותר הזמנות בכל גדלי הסלים בהשוואה ללקוחות מזדמנים.
+
+### רווחי סמך ו-ANOVA
+בכדי להבין את השפעת סוגי הלקוחות (קבועים ומזדמנים) על הרגלי הרכישה, נשתמש ברווחי סמך ואנובה.
+
+רווחי סמך יאפשרו לנו להעריך את מידת הוודאות של הממוצעים שהתקבלו לכל קבוצת רכישה. בכך, הם יסייעו לוודא שההבדלים בין הקבוצות אינם תוצאה של שגיאה מדגמית אלא באמת מייצגים את ההבדלים האמיתיים בין הקבוצות. בטבלה מופיעים טווחי האמינות (CI_Low ו-CI_High) עבור הממוצע של כל קבוצת רכישה, וכל רווח סמך מייצג ביטחון ברמת 95% לגבי טווח הערכים שבו נמצא הממוצע האמיתי של כל קבוצת רכישה.
+
+```{r calculate, echo=FALSE}
+# חישוב ממוצע סטנדרטי (Standard Error) ורווח סמך 95% לכל קבוצת רכישה
+summary_costumers <- costumer2 %>%
+  group_by(customer_type, purchase_group) %>%
+  summarize(
+    average_users = n(),
+    se = sd(total_items) / sqrt(n()),  
+    .groups = "drop"
+  ) %>%
+  mutate(
+    CI_Low = average_users - 1.96 * se,  # חישוב רווח סמך תחתון
+    CI_High = average_users + 1.96 * se   # חישוב רווח סמך עליון
+  )
+
+# הצגת טבלה עם רווחי סמך
+suppressPackageStartupMessages(library(kableExtra))  # הסתרת הודעות טעינת חבילה
+summary_costumers %>%
+  select(customer_type, purchase_group, average_users, CI_Low, CI_High) %>%
+  kable(align = "c") %>%  # מרכז את כל עמודות הטבלה
+  kable_styling(bootstrap_options = c("striped"))
+
+```
+
+**משמעויות הניתוח **
+
+- **השפעת סוג הלקוח:** לקוחות קבועים, מבצעים רכישות גדולות יותר באופן מובהק, ורווחי הסמך שלהם מאשרים את יציבותם והימצאותם בקבוצת לקוחות פעילה יותר.
+- **הבדלים בין הקבוצות:** רווחי הסמך עבור כל קבוצה (לקוחות קבועים ומזדמנים) לא חופפים, מה שמעיד על הבדל מובהק בהתנהגויות הקנייה.
+
+ניתוח ANOVA יעזור לנו לוודא אם ההבדלים בין הקבוצות הם אכן מובהקים סטטיסטית. בתוצאות ANOVA, ערך ה-F הגבוה וערך ה-p הנמוך מ-0.05 מעידים על כך שההבדלים בין הקבוצות הם מובהקים.
+
+```{r anova_test, echo=FALSE}
+# התקנת החבילה kableExtra אם לא הותקנה
+if (!require(kableExtra)) install.packages("kableExtra", dependencies = TRUE)
+
+# טעינת החבילות בלי הודעות
+suppressPackageStartupMessages({
+  library(kableExtra)
+  library(broom)
+  library(knitr)
+})
+
+# ביצוע ANOVA כדי לבדוק אם יש הבדל סטטיסטי בין הקבוצות השונות
+anova_result <- aov(total_items ~ purchase_group * customer_type, data = costumer2)
+
+# שימוש ב-broom כדי להמיר את תוצאות ה-ANOVA לפורמט טבלה
+anova_table <- tidy(anova_result)
+
+# הצגת טבלת ה-ANOVA בצורה יפה עם גבולות ומרכז
+kable(anova_table, caption = "תוצאות ANOVA בין קבוצות רכישה וסוגי קונים", 
+      col.names = c("מושג", "דרגות חופש", "סכום ריבועים", "ממוצע ריבועים", "סטטיסטיקת F", "ערך p"),
+      format = "markdown", align = "c", 
+      row.names = FALSE) %>%
+  kable_styling(bootstrap_options = c("striped","responsive"), full_width = FALSE)
+
+```
+
+**משמעויות ניתוח ה-ANOVA **
+
+- **השפעת קבוצת הרכישה (purchase_group):** יש הבדל מובהק בין הקבוצות השונות לפי גודל הרכישה, מה שמעיד שגודל הסל משפיע על התנהגות הלקוחות. כלומר יש קשר בין מספר המוצרים שהלקוח קונה לבין איך שהוא מתנהג כהלקוח, לקוחות שמבצעים רכישות גדולות יותר עשויים להיות קבועים יותר או להיות בעלי הרגלי קנייה שונים מלקוחות שקונים פחות מוצרים בכל הזמנה.
+- **השפעת סוג הלקוח (customer_type):** יש הבדל מובהק בין לקוחות קבועים למזדמנים, כשהלקוחות הקבועים רוכשים באופן מובהק יותר פריטים.
+- **אינטראקציה בין סוג הלקוח וגודל הרכישה:** יש אינטראקציה מובהקת בין סוג הלקוח וגודל הרכישה, כלומר, לקוחות קבועים מבצעים רכישות גדולות יותר.
+
+בכך, כל התוצאות מתיישבות אחת עם השנייה ומובילות למסקנה מובהקת שהלקוחות הקבועים מבצעים רכישות גדולות יותר ובתדירות גבוהה יותר לעומת הלקוחות המזדמנים.
+   
+#### **שאלה 4: אילו מוצרים לרוב נרכשים מחדש במספר הזמנות?**
+
+**השערה:** מוצרים ביתיים בסיסיים, כגון חלב, ביצים ולחם, יהיו בעלי שיעורי הרכישה החוזרים הגבוהים ביותר על פני מספר הזמנות.
+<br>
+**הסבר מילולי על התוצאה המוצגת באיור:**
+הטבלה שמוצגת מציגה את שיעור הרכישות החוזרות עבור כל מוצר.
+הצבעים בטבלה ממחישים את שיעור הרכישות החוזרות.
+
+- **כחול בהיר** מציין מוצרים עם אחוז רכישות חוזרות גבוה מ-60%.
+- **תכלת** מציין אחוז רכישות חוזרות בין 50% ל-60%.
+- **ירוק בהיר** מציין אחוז רכישות חוזרות בין 30% ל-50%.
+- **צהוב בהיר** מציין אחוז רכישות חוזרות בין 20% ל-30%.
+- **כתום** מציין אחוז רכישות חוזרות בין 10% ל-20%.
+- **אדום** מציין אחוז רכישות חוזרות נמוך מ-10%.
+
+רווחי הסמך (confidence intervals) שמוצגים בטבלה עבור כל מוצר מספקים הערכה על הטווח שבו ייתכן ששיעור הרכישות החוזרות (reorder rate) האמיתי נמצא. 
+
+```{r table_plot, echo=FALSE}
+# יצירת הטבלה המלאה product_summary עם סטטיסטיקות על מוצרים
+product_summary <- dataset %>%
+  group_by(product_id, product_name, department) %>%
+  summarise(
+    total_orders = n(),
+    reorder_count = sum(reordered, na.rm = TRUE),
+    reorder_rate = (reorder_count / total_orders) * 100,
+    lower_bound = prop.test(reorder_count, total_orders, conf.level = 0.95)$conf.int[1],
+    upper_bound = prop.test(reorder_count, total_orders, conf.level = 0.95)$conf.int[2],
+    .groups = "drop"  
+  )
+
+# יצירת טבלה של 5 המוצרים עם ה-reorder_rate הגבוה ביותר
+top_5_products <- product_summary %>%
+  arrange(desc(reorder_rate)) %>%
+  head(5) %>%
+  select(product_id, product_name, department, reorder_rate, lower_bound, upper_bound)
+
+# יצירת טבלה של 5 המוצרים עם ה-reorder_rate הנמוך ביותר
+bottom_5_products <- product_summary %>%
+  arrange(reorder_rate) %>%
+  head(5) %>%
+  select(product_id, product_name, department, reorder_rate, lower_bound, upper_bound)
+
+# פונקציה לצביעת עמודת reorder_rate בהתאם לערכים
+color_reorder_rate <- function(rate) {
+  case_when(
+    rate > 60 ~ "dodgerblue",
+    rate > 50 ~ "lightblue",
+    rate > 30 ~ "lightgreen",
+    rate > 20 ~ "lightyellow",
+    rate > 10 ~ "orange",
+    TRUE ~ "darkred"
+  )
+}
+
+# הצגת הטבלה של המוצרים עם ה-reorder_rate הגבוה ביותר
+cat("**5 המוצרים עם ה-reorder_rate הגבוה ביותר**")
+top_5_products %>%
+  mutate(reorder_rate = cell_spec(reorder_rate, color = "black", background = color_reorder_rate(reorder_rate))) %>%
+  kable("html", escape = FALSE, caption = "5 המוצרים עם שיעור רכישות חוזרות הגבוה ביותר", align = 'c') %>%
+  kable_styling(full_width = FALSE)
+
+# הצגת הטבלה של המוצרים עם ה-reorder_rate הנמוך ביותר
+cat("**5 המוצרים עם ה-reorder_rate הנמוך ביותר**")
+bottom_5_products %>%
+  arrange(desc(reorder_rate)) %>%
+  mutate(reorder_rate = cell_spec(reorder_rate, color = "black", background = color_reorder_rate(reorder_rate))) %>%
+  kable("html", escape = FALSE, caption = "5 המוצרים עם שיעור רכישות חוזרות הנמוך ביותר", align = 'c') %>%
+  kable_styling(full_width = FALSE)
+
+```
+
+
+**מסקנות ותובנות עיקריות**
+
+- **מוצרים הנרכשים באופן חוזר:** מוצרים כמו חלב, ביצים, מים (רגילים ומוגזים), וירקות ופירות הם המוצרים בעלי שיעור הרכישה החוזרת הגבוה ביותר (מעל 70%). אלו הם מוצרים בסיסיים ויומיומיים, שמרבים להיכלל בסלים חוזרים של לקוחות.
+- **מוצרים עם שיעור רכישה חוזרת נמוך:** מוצרים כמו תבלינים ומוצרי קישוט לאפייה מציגים שיעורי רכישה חוזרת נמוכים מאוד. מדובר במוצרים חד-פעמיים או כאלה הנדרשים לעיתים רחוקות, ולכן אין צורך ברכישתם לעיתים תכופות.
+- המוצרים שנרכשים באופן חוזר נוטים להיות מוצרים צריכה יומיומיים, בעוד שמוצרים עם רכישה חוזרת נמוכה הם לרוב פריטים שאינם דרושים באופן תדיר, ובכך מצביעים על התנהגות רכישה שנובעת מהצורך הפרקטי והיומיומי של הצרכן.
+
+# **סיכום**
+#### **חזרה על המסקנות והתובנות שהוצגו**
+
+הניתוחים שבוצעו מצביעים על דפוסים שונים בהתנהגות הרכישה של הלקוחות, כאשר יש הבדל ברור בין רכישות של- לקוחות קבועים לעומת לקוחות מזדמנים, ומגמות שונות לפי קטגוריות מוצרים וימים בשבוע.
+<br>
+**קטגוריית המזון** מציגה שיאים בתחילת השבוע, במיוחד במוצרי חלב, ירקות ופירות, עם ירידה עד יום חמישי ועלייה קלה בסוף השבוע.
+<br>
+**קטגוריית האחסון** מציגה מכירות יציבות יחסית, עם שיאים במוצרים בהקפאה ובשימור.
+<br>
+**קטגוריית המשקאות** מציגה שיא מכירות ביום שני עבור משקאות קלים ויום שישי עבור אלכוהול.
+<br>
+**קטגוריית משק** הבית מציגה רכישות מרוכזות בעיקר ביום ראשון ותחילת השבוע, עם יציבות יחסית במוצרים לחיות מחמד.
+<br>
+**הקטגוריה "אחר"** מציגה שיא ביום ראשון עם ירידה עד יום חמישי.
+
+- מגמת המכירות השבועית הציגה תמהיל מכירות עקבי. קטגוריית המזון שומרת על דומיננטיות עם כ-44% ממכירות היום, בעוד קטגוריות האחסון והמשקאות תופסות כ-22% כל אחת. קטגוריית משק הבית תורמת כ-7% וקטגוריית "אחר" כ-5%. תצפיות על תנודות יומיות מראות עלייה קלה במכירות מוצרי האחסון בימי ראשון ושבת, לצד ירידה במכירות המשקאות.
+
+- נמצא כי לקוחות מבצעים הזמנות בעיקר בתחילת השבוע, כאשר שעות הבוקר והלילה מצביעות על פעילות נמוכה. ביום שבת ניכרת עליה בעומס  אך באופן כללי סופי השבוע לא מייצגים את העומסים הכבדים ביותר.
+
+- בכל קטגורית סל יש יותר לקוחות קבועים ממזדמנים, מה שמעיד על קהל לקוחות יציב. קונים קבועים נוטים לבצע רכישות רבות יותר בגדלי  סלים המבטאים צורך מתמשך (מעל 10 מוצרים). יחד עם זאת, הקונים המזדמנים נוטים לבצע רכישות דומות ללקוחות הקבועים, אך בסך הכל פחות תכופות מאשר קבועים.
+
+- מוצרי צריכה בסיסיים, כמו חלב וביצים, נרכשים באופן חוזר לעיתים קרובות, בעוד שמוצרים כמו תבלינים אינם נרכשים באותה תדירות.
+<br>
+
+#### **זיקוק התובנות להמלצה**
+
+- **חלוקת למשמרות:** בשעות הלילה (00:00-07:00) נדרשת כמות עובדים מצומצמת, בעוד שבשעות העומס (07:00-19:00) נדרש תגבור. ביום ראשון יש להביא יותר עובדים בשעות העומס החריגות (09:00-17:00).
+
+- **הפיכת קונים מזדמנים לקבועים:** בקטגוריה של מעל 10 מוצרים יש פוטנציאל להגדלת נאמנות הלקוחות המזדמנים. ניתן לחשוב על הקמת מועדון לקוחות ומתן הצעות אטרקטיביות בכניסה.
+
+- **ניהול מלאי:** יש להתמקד בשמירה על מלאי זמין של מוצרים בסיסיים הנרכשים באופן חוזר, במיוחד בתחילת השבוע. מומלץ להביא סחורה טרייה לקראת הימים העמוסים (ראשון עד שני).
+
+- **ניהול קמפיינים:** להציע הנחות ומבצעים במועדים שונים. בזמני עומס - הנחות על מוצרים פופולריים, בזמנים שקטים - מבצעים למשיכת לקוחות חדשים או חזרה של לקוחות קודמים.
+<br>
+
+#### **הצעת רעיונות לניתוחים נוספים**
+
+- **ניתוח עונתיות:** לבצע ניתוחים תקופתיים של נתוני הרכישות כדי לזהות מגמות משתנות, כגון השפעות חגים או אירועים מיוחדים על הרגלי הרכישה. ניתוח השפעת העונות על רכישות יכול לספק תובנות לגבי מוצרים עונתיים וכיצד הם משפיעים על דפוסי ההזמנה.
+
+- **הערכת השפעת מבצעים:** אם ישנם מבצעים שנעשו במהלך תקופה מסוימת, ניתן לנתח את השפעתם על רכישות חוזרות.
+
+- **השפעת קידום מכירות:** בדיקה כיצד קמפיינים פרסומיים משפיעים על רכישות חוזרות יכולה לעזור לקבוע אסטרטגיות פרסום יעילות.
